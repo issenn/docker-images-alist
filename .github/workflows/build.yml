@@ -45,7 +45,8 @@ jobs:
 
     env:
       RUN_CACHE: true
-      DOCKER_PLATFORMS: linux/amd64,linux/arm64,linux/arm/v7,linux/386,linux/arm/v6,linux/s390x
+      # DOCKER_PLATFORMS: linux/amd64,linux/arm64,linux/arm/v7,linux/386,linux/arm/v6,linux/s390x
+      DOCKER_PLATFORMS: linux/amd64
       working-directory: ${{ github.workspace }}
 
     steps:

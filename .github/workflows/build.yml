@@ -5,35 +5,42 @@ on:
   push:
     branches:
       - 'master'
-    tags:
-      - 'v*'
+    # tags:
+      # - 'v*'
     # only build when important files change
     paths-ignore:
       - 'README.md'
-      - '.github/workflows/linter.yml'
+      - '.github/workflows/**'
+      # - '.github/workflows/linter.yml'
       - '.github/linters/**'
+      - '.github/dependabot.yml'
   pull_request:
     branches:
       - 'master'
     # only build when important files change
     paths-ignore:
       - 'README.md'
-      - '.github/workflows/linter.yml'
+      - '.github/workflows/**'
+      # - '.github/workflows/linter.yml'
       - '.github/linters/**'
+      - '.github/dependabot.yml'
   schedule:
     # re-run montly to keep image fesh with upstream base images
-    - cron: '0 12 * * *'
+    - cron: '0 16 * * 1'
   workflow_dispatch:
     # run whenever we want!
 
 env:
   TZ: 'Asia/Shanghai'
+  BUILD_VERSION: "2022.1.9"
+  # DOCKER_CLI_EXPERIMENTAL: enabled
   REGISTRY: ghcr.io
-  IMAGE: issenn/alist
   IMAGE_NAME: alist
+  # DOCKER_PLATFORMS: linux/amd64,linux/386,linux/arm64,linux/arm/v7,linux/arm/v6,linux/s390x
+  DOCKER_PLATFORMS: linux/amd64,linux/arm64
 
 jobs:
-  build-and-push:
+  deploy:
     name: Build and Push Docker Image
     if: github.event.repository.owner.id == github.event.sender.id
     runs-on: ubuntu-20.04
@@ -45,8 +52,6 @@ jobs:
 
     env:
       RUN_CACHE: true
-      # DOCKER_PLATFORMS: linux/amd64,linux/arm64,linux/arm/v7,linux/386,linux/arm/v6,linux/s390x
-      DOCKER_PLATFORMS: linux/amd64
       working-directory: ${{ github.workspace }}
 
     steps:
@@ -109,13 +114,13 @@ jobs:
 
       # 登录到 GitHub Packages 容器仓库
       # 注意 secrets.GITHUB_TOKEN 不需要手动添加，直接就可以用
-      - name: Log in to the Container registry
+      - name: Login to the Container Registry
         # if: github.event_name != 'pull_request'
         uses: docker/login-action@v1
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ secrets.REGISTRY_USERNAME || github.actor }}
-          password: ${{ secrets.REGISTRY_TOKEN || secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.REGISTRY_TOKEN || secrets.GITHUB_TOKEN || github.token }}
 
       - name: Docker meta
         id: meta
@@ -141,6 +146,9 @@ jobs:
             type=match,enable=false,priority=800,prefix=,suffix=,pattern=p1-v(\d.\d.\d),group=1,value=
             type=edge,enable=false,priority=700,prefix=,suffix=,branch=$repo.default_branch
             type=sha,enable=false,priority=100,prefix={{branch}}-,suffix=,format=short
+          labels: |
+            org.opencontainers.image.version=${{ env.BUILD_VERSION }}
+            org.opencontainers.image.title=${{ secrets.DOCKERHUB_USERNAME || github.actor }}/${{ env.IMAGE_NAME }}
 
       - name: Build and push
         id: docker_build
@@ -149,7 +157,12 @@ jobs:
           context: .
           # push: true
           push: false
-          tags: ${{ steps.meta.outputs.tags }}
+          # build-args: 
+          # tags: ${{ steps.meta.outputs.tags }}
+          tags: |
+            ${{ steps.meta.outputs.tags }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ env.BUILD_VERSION }}
+            ${{ env.REGISTRY }}/${{ github.actor }}/${{ env.IMAGE_NAME }}:${{ env.BUILD_VERSION }}
           labels: ${{ steps.meta.outputs.labels }}
           platforms: ${{ env.DOCKER_PLATFORMS }}
           cache-from: type=local,src=/tmp/.buildx-cache
@@ -166,7 +179,7 @@ jobs:
       - name: Show image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
 
-      - name: Inspect image
-        run: |
-          docker buildx imagetools inspect \
-          ${{ env.REGISTRY }}/${{ github.actor }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
+      # - name: Inspect image
+      #   run: |
+      #     docker buildx imagetools inspect \
+      #     ${{ env.REGISTRY }}/${{ github.actor }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}

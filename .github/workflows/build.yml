@@ -5,8 +5,6 @@ on:
   push:
     branches:
       - 'master'
-    # tags:
-      # - 'v*'
     # only build when important files change
     paths-ignore:
       - 'README.md'
@@ -58,16 +56,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
         with:
-          repository: 'Xhofe/alist'
           token: ${{ secrets.PAT || secrets.GITHUB_TOKEN || github.token }}
-
-      - name: Set up Node
-        uses: actions/setup-node@v2
-        with:
-          node-version: '16'
-
-      - name: Build web
-        run: bash build.sh web
 
       # - name: Prepare docker image name
       #   id: image_names
@@ -155,14 +144,12 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           context: .
+          file: 2/buster/Dockerfile
           # push: true
           push: false
-          # build-args: 
-          # tags: ${{ steps.meta.outputs.tags }}
+          # build-args:
           tags: |
             ${{ steps.meta.outputs.tags }}
-            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ env.BUILD_VERSION }}
-            ${{ env.REGISTRY }}/${{ github.actor }}/${{ env.IMAGE_NAME }}:${{ env.BUILD_VERSION }}
           labels: ${{ steps.meta.outputs.labels }}
           platforms: ${{ env.DOCKER_PLATFORMS }}
           cache-from: type=local,src=/tmp/.buildx-cache
@@ -176,8 +163,8 @@ jobs:
           rm -rf /tmp/.buildx-cache
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
-      - name: Show image digest
-        run: echo ${{ steps.docker_build.outputs.digest }}
+    #   - name: Show image digest
+    #     run: echo ${{ steps.docker_build.outputs.digest }}
 
       # - name: Inspect image
       #   run: |

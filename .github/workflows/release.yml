@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow
+name: Build and Push Docker Image
+
+on:
+  push:
+    tags:
+      - 'v*'
+    # only build when important files change
+    paths-ignore:
+      - 'README.md'
+      - '.github/workflows/**'
+      # - '.github/workflows/linter.yml'
+      - '.github/linters/**'
+      - '.github/dependabot.yml'
+  schedule:
+    # re-run montly to keep image fesh with upstream base images
+    - cron: '0 16 * * 1'
+  workflow_dispatch:
+    # run whenever we want!
+
+env:
+  TZ: 'Asia/Shanghai'
+  # DOCKER_CLI_EXPERIMENTAL: enabled
+  REGISTRY: ghcr.io
+  IMAGE_NAME: alist
+  # DOCKER_PLATFORMS: linux/amd64,linux/386,linux/arm64,linux/arm/v7,linux/arm/v6,linux/s390x
+  DOCKER_PLATFORMS: linux/amd64,linux/arm64
+
+jobs:
+  deploy:
+    name: Build and Push Docker Image
+    if: github.event.repository.owner.id == github.event.sender.id
+    runs-on: ubuntu-20.04
+
+    # 这里用于定义 GITHUB_TOKEN 的权限
+    permissions:
+      packages: write
+      contents: read
+
+    env:
+      RUN_CACHE: true
+      working-directory: ${{ github.workspace }}
+
+    steps:
+      - name: Get tags using REST API
+        run: |
+          curl --request GET \
+          --url https://api.github.com/repos/Xhofe/alist/tags\?per_page\=1 \
+          --header 'authorization: Bearer ${{ secrets.GITHUB_TOKEN }}' \
+          --header 'content-type: application/json' \
+          --fail
+          # | jq -r '.[].name'
+
+      # - name: Create issue using REST API
+      #   run: |
+      #     curl --request POST \
+      #     --url https://api.github.com/repos/${{ github.repository }}/issues \
+      #     --header 'authorization: Bearer ${{ secrets.GITHUB_TOKEN }}' \
+      #     --header 'content-type: application/json' \
+      #     --data '{
+      #       "title": "Automated issue for commit: ${{ github.sha }}",
+      #       "body": "This issue was automatically created by the GitHub Action workflow **${{ github.workflow }}**. \n\n The commit hash was: _${{ github.sha }}_."
+      #       }' \
+      #     --fail
